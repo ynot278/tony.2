@@ -9,24 +9,76 @@ Project 2 Concurrent Linux Processes and shared memory
 #include <stdio.h>
 #include <ctype.h>
 #include <sys/ipc.h>
+#include <string.h>
 #include <sys/shm.h>
 #include <errno.h>
-#include "config.h"
-
 #include <sys/types.h> 
 #include <sys/wait.h> 
 #include <limits.h>
 
-int shmid;
-int shmkey = 0x8837;
+#include "config.h"
+
 
 struct shmseg{
 	int cnt;
 	int complete;
 	char buf[MAX_CANON];
-	char buf2[MAX_CANON];
-	int num;
 };
+
+struct shmseg *shmp;
+int shmid;
+int shmkey = 0x8837;
+pid_t pidList;
+int license;
+
+void doCommand(){
+	char filename[] = "testing.data";
+	FILE *file = fopen (filename, "r");
+
+	char line[MAX_CANON];
+
+	execl("./testsim", "./testsim", "2", "5");
+		
+
+}
+
+void setupSharedMemory(){
+	shmid = shmget(shmkey, sizeof(struct shmseg), 0644|IPC_CREAT);
+	if (shmid == -1){
+		perror("runsim: Error: Shared memory setup failed");
+		exit(EXIT_FAILURE);
+	}
+
+	
+	shmp = shmat(shmid, NULL, 0);
+	if (shmp == (void *) -1){
+		perror("runsim: Error: Shared memory attach");
+		exit(EXIT_FAILURE);
+	}
+
+}
+
+int getEmptyProcessIndex(){
+  int i = 0;
+  for (i = 0; i < license; i++){
+    if (pidList == 0)
+      return i;
+  }
+  return -1;
+}
+
+void createChild(){
+	int i, position;
+	for (i = 0; i < license; i++){
+		position = getEmptyProcessIndex();
+		pidList = fork();
+		if(pidList == -1){
+			perror("runsim: Error: Fork Failed");
+		} else
+				doCommand();
+	}
+}
+
 
 int main(int argc, char *argv[]) {
 
@@ -53,56 +105,21 @@ int main(int argc, char *argv[]) {
 
 	//convert argv[1] to an integer.
 	char *p;
-	int license;
 	errno = 0;
 	long conv = strtol(argv[1], &p, 10);
 
 	if (errno != 0 || *p != '\0' || conv > N_LICENSE || conv < 1){
 		printf("Number of licenses should not be greater than 20.");
 		exit(EXIT_FAILURE);
-	} else {
+	} else
 		license = conv;
-		printf("%d\n", license);
-	}
 	
-	//set up shared memory
-	shmid = shmget(shmkey, sizeof(struct shmseg), 0644|IPC_CREAT);
-	if (shmid == -1){
-		perror("runsim: Error: Shared memory");
-		return 1;
-	} else {
-		printf("Shared memory created\n");
-	}
+	setupSharedMemory();
+	createChild();
+	
+	
 
-	//attach
-	struct shmseg *shmp;
-	shmp = shmat(shmid, NULL, 0);
-	if (shmp == (void *) -1){
-		perror("runsim: Error: Shared memory attach");
-		return 1;
-	} else {
-		printf("Shared memory attach success\n");
-	}
 
-	char *bufptr;
-	int spaceavailable;
-	bufptr = shmp->buf;
-	spaceavailable = MAX_CANON;
-
-	fgets(bufptr, spaceavailable, stdin);
-	printf("Read: %s\n", bufptr);
-
-	pid_t cpid, w;
-	int status;
-
-	cpid = fork();
-	if (cpid == -1){
-		perror("runsim: Error: Fork");
-		exit(EXIT_FAILURE);
-	} 
-	if (cpid == 0){
-		printf("Child PID is %ld\n", (long)getpid());
-	} 
 
 	//detach
 	if (shmdt(shmp) ==  -1){
@@ -110,5 +127,5 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 	//deallocate memory?
-	//shmctl(shmid, IPC_RMID, NULL);
+	shmctl(shmid, IPC_RMID, NULL);
 }

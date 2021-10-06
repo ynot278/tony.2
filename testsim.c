@@ -50,5 +50,9 @@ int main(int argc, char *argv[]) {
 		repeatFactor = repeatConvert;
 		printf("Repeat Factor %d\n", repeatFactor);
 	}
+
+	for (int i = 0; i < repeatFactor; i++){
+		
+	}
 	
 }
