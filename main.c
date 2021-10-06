@@ -14,6 +14,7 @@ Project 2 Concurrent Linux Processes and shared memory
 #include <errno.h>
 #include <sys/types.h> 
 #include <sys/wait.h> 
+#include <signal.h>
 #include <limits.h>
 
 #include "config.h"
@@ -37,7 +38,7 @@ void doCommand(){
 
 	char line[MAX_CANON];
 
-	execl("./testsim", "./testsim", "2", "5");
+	execl("./testsim", "./testsim", "2", "5", NULL);
 		
 
 }
@@ -49,7 +50,6 @@ void setupSharedMemory(){
 		exit(EXIT_FAILURE);
 	}
 
-	
 	shmp = shmat(shmid, NULL, 0);
 	if (shmp == (void *) -1){
 		perror("runsim: Error: Shared memory attach");
@@ -58,19 +58,10 @@ void setupSharedMemory(){
 
 }
 
-int getEmptyProcessIndex(){
-  int i = 0;
-  for (i = 0; i < license; i++){
-    if (pidList == 0)
-      return i;
-  }
-  return -1;
-}
 
 void createChild(){
 	int i, position;
 	for (i = 0; i < license; i++){
-		position = getEmptyProcessIndex();
 		pidList = fork();
 		if(pidList == -1){
 			perror("runsim: Error: Fork Failed");
@@ -79,8 +70,26 @@ void createChild(){
 	}
 }
 
+void sig_handler(int signum){
+	if (pidList != 0)
+		kill(pidList, SIGKILL);
+
+	if (shmdt(shmp) ==  -1)
+		perror("runsim: Error: shmdt");
+
+	shmctl(shmid, IPC_RMID, NULL);
+
+	printf("Caught Signal: %d", signum);
+	exit(EXIT_SUCCESS);
+}
+
 
 int main(int argc, char *argv[]) {
+
+	//signal setup for timer and ctrl + c
+	signal(SIGALRM,sig_handler);
+	signal(SIGINT, sig_handler);
+  alarm(TIMER);
 
 	//If not 2 arguments, display usage.
 	if (argc != 2){
@@ -117,15 +126,4 @@ int main(int argc, char *argv[]) {
 	setupSharedMemory();
 	createChild();
 	
-	
-
-
-
-	//detach
-	if (shmdt(shmp) ==  -1){
-		perror("runsim: Error: shmdt");
-		return 1;
-	}
-	//deallocate memory?
-	shmctl(shmid, IPC_RMID, NULL);
 }
