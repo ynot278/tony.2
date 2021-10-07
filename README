@@ -1,0 +1,28 @@
+# Project 2 OS
+
+Author: Tony Pham
+
+# Files
+    main.c - master
+    testsim.c - bin_adder
+    config.h
+    Makefile
+    testing.data
+    
+# Build
+    make
+
+# Run
+    ./runsim n
+    
+# Remove all
+    make clean
+
+##### Changes/Implemented
+> Not able to complete the program
+> Creates shared memory and attachs
+> Signal Handling works
+> getops works
+> fork works for making one child
+> doCommand doesn't take fgets from stdin, but from set const
+> does not print to log file but stdout
