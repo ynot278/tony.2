@@ -26,21 +26,53 @@ struct shmseg{
 	char buf[MAX_CANON];
 };
 
-struct shmseg *shmp;
+char *childProcess = "./testsim";
+int *shmptr;
 int shmid;
 int shmkey = 0x8837;
-pid_t pidList;
+pid_t pid;
 int license;
+int size;
+
+char *readFile(const char *fileName){
+	FILE *file = fopen(fileName, "r");
+	int i = 0;
+	int counter = 0;
+	while (fscanf(file, "%d", &i) != EOF){
+		counter++;
+	}
+
+	char *charArray = (char *)malloc(sizeof(int) *counter);
+	fseek(file, 0 , SEEK_SET);
+
+	counter = 0;
+
+	char *firstPointer = charArray;
+	while (fscanf(file, "%d", &i) != EOF){
+		*charArray = i;
+		charArray++;
+		counter++;
+	}
+
+	charArray = firstPointer;
+	size = counter;
+	fclose(file);
+
+	return charArray;
+}
 
 void doCommand(){
-	char filename[] = "testing.data";
-	FILE *file = fopen (filename, "r");
+	char *args;
 
-	char line[MAX_CANON];
+	args = readFile("testing.data");
+	printf("%s", &args[1]);
 
-	execl("./testsim", "./testsim", "2", "5", NULL);
-		
+	//I was unable to take args from testing.data.
+	char *argv[2];
+	argv[0] = "2";
+	argv[1] = "3";
 
+	execl(childProcess, childProcess, argv[0], argv[1], (char*)NULL);
 }
 
 void setupSharedMemory(){
@@ -50,31 +82,28 @@ void setupSharedMemory(){
 		exit(EXIT_FAILURE);
 	}
 
-	shmp = shmat(shmid, NULL, 0);
-	if (shmp == (void *) -1){
+	shmptr = (int *)shmat(shmid, 0, 0);
+	if (shmptr == (int *) -1){
 		perror("runsim: Error: Shared memory attach");
 		exit(EXIT_FAILURE);
 	}
 
 }
 
-
-void createChild(){
-	int i, position;
-	for (i = 0; i < license; i++){
-		pidList = fork();
-		if(pidList == -1){
-			perror("runsim: Error: Fork Failed");
-		} else
-				doCommand();
-	}
+pid_t make_Child(){
+	pid = fork();
+	if(pid == -1){
+		perror("runsim: Error: Fork Failed");
+	} else
+			doCommand();
+	return pid;
 }
 
 void sig_handler(int signum){
-	if (pidList != 0)
-		kill(pidList, SIGKILL);
+	if (pid != 0)
+		kill(pid, SIGKILL);
 
-	if (shmdt(shmp) ==  -1)
+	if (shmdt(shmptr) ==  -1)
 		perror("runsim: Error: shmdt");
 
 	shmctl(shmid, IPC_RMID, NULL);
@@ -82,7 +111,6 @@ void sig_handler(int signum){
 	printf("Caught Signal: %d", signum);
 	exit(EXIT_SUCCESS);
 }
-
 
 int main(int argc, char *argv[]) {
 
@@ -124,6 +152,6 @@ int main(int argc, char *argv[]) {
 		license = conv;
 	
 	setupSharedMemory();
-	createChild();
-	
+	make_Child();
+	return 0;
 }
