@@ -75,5 +75,7 @@ int main(int argc, char *argv[]) {
 		printf("Iteration %d of %d ", (i+1), repeatFactor);
 		sleep(sleepTime);
 	}
+	shmctl(shmid, IPC_RMID, NULL);
+
 	return 0;
 }
